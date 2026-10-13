@@ -210,7 +210,7 @@ function fidWrap(){try{return JSON.parse(LS.getItem('twf_fid')||'null')}catch(e)
 function fidClear(){LS.removeItem('twf_fid')}
 async function fidAvail(){try{return !!(window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){return false}}
 async function fidKey(prf){const base=await S.importKey('raw',prf,'HKDF',false,['deriveKey']);return S.deriveKey({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(32),info:FID_INFO},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-async function fidGet(credId,salt){const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rpId:FID_RP,allowCredentials:[{type:'public-key',id:credId,transports:['internal','hybrid']}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
+async function fidGet(credId,salt){const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rpId:FID_RP,allowCredentials:[{type:'public-key',id:credId,transports:['internal']}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
  const r=a&&a.getClientExtensionResults().prf;return r&&r.results&&r.results.first?new Uint8Array(r.results.first):null}
 /* returns 'ok' | 'unsupported' | 'cancel' */
 async function fidEnable(raw){if(!raw)return 'cancel';const salt=crypto.getRandomValues(new Uint8Array(32));let c;
