@@ -1,5 +1,5 @@
-const SHELL='twf-shell-v1.6-202610151220-fid1',DATA='twf-data';
-const FILES=['./','index.html','manifest.json','apple-touch-icon.png','icon-192.png','icon-512.png'];
+const SHELL='twf-shell-v1.7-202610151220-fid1-ic2',DATA='twf-data';
+const FILES=['./','index.html','manifest.json','apple-touch-icon.png','icon-192.png','icon-512.png','icon-maskable-512.png','favicon.ico'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>c.addAll(FILES)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==SHELL&&k!==DATA).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET')return;
