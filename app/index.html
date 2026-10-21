@@ -281,16 +281,20 @@ function showSetup(){frame('首次设置','输入激活码，并设置只有你�
   if(raw.length!==32)return er.textContent='激活码格式不正确';if(a.length<8)return er.textContent='密码至少 8 位';if(a!==b)return er.textContent='两次输入的密码不一致';
   busy(true,'正在加密…');try{const d=await decBlob(raw,BUNDLE);await wrapDK(a,raw);LS.removeItem('twf_fail');DK=raw;
    if(NB&&NB.bioAvailable&&NB.bioAvailable())return offerBio(raw);await openData(raw)}catch(x){er.textContent='激活码无效';busy(false,'完成设置')}}}
-function offerBio(raw){frame('启用指纹解锁？','之后可用指纹快速打开。密码仍可随时使用。',`<form id="f" onsubmit="return false"><button class="ghost" id="yes" type="button">${IFP}启用指纹解锁</button><button class="lnk" id="no" type="button">暂不启用</button></form>`);
- document.getElementById('yes').onclick=()=>{window.twfBio=(ok)=>{if(ok)LS.setItem('twf_bio','1');openData(raw)};NB.bioEnable(b64(raw))};
- document.getElementById('no').onclick=()=>openData(raw)}
+function offerBio(raw,re){frame(re?'重新启用指纹解锁？':'启用指纹解锁？',re?'验证一次指纹即可重新启用，无需激活码。密码仍可随时使用。':'之后可用指纹快速打开。密码仍可随时使用。',`<form id="f" onsubmit="return false"><div class="err" id="er"></div><button class="ghost" id="yes" type="button">${IFP}${re?'重新启用指纹解锁':'启用指纹解锁'}</button><button class="lnk" id="no" type="button">暂不启用</button></form>`);
+ const er=()=>document.getElementById('er');
+ document.getElementById('yes').onclick=()=>{er().textContent='';window.twfBio=(ok,d,why)=>{window.twfBio=null;if(ok){LS.setItem('twf_bio','1');LS.removeItem('twf_bio_re');LS.removeItem('twf_bio_skip');openData(raw).then(()=>toast('指纹解锁已启用'))}else er().textContent=why==='cancel'?'已取消，可重试或选择“暂不启用”':'启用失败，请重试或选择“暂不启用”'};try{NB.bioEnable(b64(raw))}catch(x){er().textContent='启用失败，请选择“暂不启用”'}};
+ document.getElementById('no').onclick=()=>{if(re)LS.setItem('twf_bio_skip','1');openData(raw)}}
+function pwFocus(){const p=document.getElementById('pw');p&&p.focus()}
+function bioReoffer(){try{return !!(NB&&NB.bioAvailable&&NB.bioAvailable())&&LS.getItem('twf_bio')!=='1'&&(LS.getItem('twf_bio_re')==='1'||LS.getItem('twf_bio_skip')!=='1')}catch(x){return false}}
+function bioBroken(er){LS.removeItem('twf_bio');LS.setItem('twf_bio_re','1');LS.removeItem('twf_bio_skip');try{NB&&NB.bioClear&&NB.bioClear()}catch(x){}const m='指纹已失效，请用密码解锁后重新启用指纹';if(er)er.textContent=m;toast(m);const b=document.getElementById('fp');b&&b.remove();pwFocus()}
 function showLogin(){if(!LS.getItem('twf_wrap'))return showSetup();const bio=LS.getItem('twf_bio')==='1'&&NB;
  frame('已锁定','输入密码以查看你的行程',`<form id="f"><input id="pw" type="password" placeholder="密码" autocomplete="current-password"><div class="err" id="er"></div><button class="btn">解锁</button>${bio?`<button class="ghost" id="fp" type="button">${IFP}使用指纹</button>`:''}</form><button class="lnk" id="forgot">忘记密码？</button>`);
  const er=document.getElementById('er'),btn=L().querySelector('.btn');
  const tick=()=>{const f=failState(),left=Math.ceil((f.until-Date.now())/1000);if(left>0){btn.disabled=true;er.textContent=`尝试次数过多，请 ${left>=60?Math.ceil(left/60)+' 分钟':left+' 秒'}后再试`;setTimeout(tick,1000)}else if(btn.disabled&&btn.textContent==='解锁'){btn.disabled=false;er.textContent=''}};tick();
  document.getElementById('f').onsubmit=async e=>{e.preventDefault();if(failState().until>Date.now())return;busy(true,'验证中…');
-  try{const raw=await unwrapDK(document.getElementById('pw').value);LS.removeItem('twf_fail');await openData(raw)}catch(x){const f=fail();busy(false,'解锁');document.getElementById('pw').value='';er.textContent=f.n>=5?'':`密码错误 · 还可尝试 ${5-f.n} 次`;tick()}};
- if(bio){const go=()=>{window.twfBio=(ok,d)=>{if(ok)openData(ub64(d)).catch(()=>{er.textContent='指纹数据失效，请用密码解锁';LS.removeItem('twf_bio')});};NB.bioUnlock()};document.getElementById('fp').onclick=go;setTimeout(go,300)}
+  try{const raw=await unwrapDK(document.getElementById('pw').value);LS.removeItem('twf_fail');if(bioReoffer())return offerBio(raw,1);await openData(raw)}catch(x){const f=fail();busy(false,'解锁');document.getElementById('pw').value='';er.textContent=f.n>=5?'':`密码错误 · 还可尝试 ${5-f.n} 次`;tick()}};
+ if(bio){const go=()=>{if(DK)return;if(failState().until>Date.now()){toast('尝试次数过多，请稍后再试');return}er.textContent='';window.twfBio=(ok,d,why)=>{window.twfBio=null;if(ok)return openData(ub64(d)).catch(()=>bioBroken(er));if(why==='invalid')return bioBroken(er);er.textContent=why==='cancel'?'已取消指纹验证，请输入密码或点“使用指纹”重试':why==='lockout'?'指纹尝试次数过多，请用密码解锁':'指纹解锁失败，请输入密码或点“使用指纹”重试';pwFocus()};try{NB.bioUnlock()}catch(x){bioBroken(er)}};document.getElementById('fp').onclick=go;const ag=()=>setTimeout(()=>{if(!DK&&document.getElementById('fp'))go()},400);if(!document.hidden)ag();else document.addEventListener('visibilitychange',function v(){if(!document.hidden){document.removeEventListener('visibilitychange',v);ag()}})}
  document.getElementById('forgot').onclick=()=>{if(confirm('重置后需要重新输入激活码并设置新密码。继续？')){LS.removeItem('twf_wrap');LS.removeItem('twf_bio');NB&&NB.bioClear&&NB.bioClear();showSetup()}}}
 /* ===== TWF iPad: optional Face ID (WebAuthn passkey + PRF) ===== */
 const FID_RP='onisetsu.github.io',FID_INFO=new TextEncoder().encode('TWF-faceid-v1');
@@ -309,12 +313,14 @@ async function fidEnable(raw){if(!raw)return 'cancel';const salt=crypto.getRando
  const k=await fidKey(prf);prf.fill(0);const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await S.encrypt({name:'AES-GCM',iv,additionalData:AAD},k,raw);
  LS.setItem('twf_fid',JSON.stringify({v:1,cred:b64(credId),salt:b64(salt),iv:b64(iv),ct:b64(ct)}));return 'ok'}
 let fidBusy=false;
-async function fidUnlock(er){const w=fidWrap();if(!w||fidBusy||DK)return;
- const f=failState(),left=Math.ceil((f.until-Date.now())/1000);if(left>0)return; /* lockout applies to Face ID too */
- fidBusy=true;let prf=null;try{prf=await fidGet(ub64(w.cred),ub64(w.salt))}catch(e){prf=null}
- try{if(!prf){fidBusy=false;fidFallback(er,'面容解锁未完成，请输入密码 · Face ID cancelled, use password');return}
-  let raw;try{const k=await fidKey(prf);raw=new Uint8Array(await S.decrypt({name:'AES-GCM',iv:ub64(w.iv),additionalData:AAD},k,ub64(w.ct)))}catch(e){const f2=fail();fidFallback(er,f2.n>=5?'':'面容数据无效，请输入密码 · Face ID failed, use password');return}
+async function fidUnlock(er){if(DK)return;const w=fidWrap();if(!w){fidFallback(er,'面容解锁未启用，请输入密码 · Face ID not set up, use password');return}
+ if(fidBusy){fidFallback(er,'正在验证… · Verifying…');return}
+ const f=failState(),left=Math.ceil((f.until-Date.now())/1000);if(left>0){fidFallback(er,'尝试次数过多，请稍后再试 · Too many attempts, try later');return} /* lockout applies to Face ID too */
+ if(er)er.textContent='';fidBusy=true;let prf=null,en='';try{prf=await fidGet(ub64(w.cred),ub64(w.salt))}catch(e){prf=null;en=(e&&e.name)||'Error'}
+ try{if(!prf){fidBusy=false;if(!en)return fidBroken(er);fidFallback(er,en==='NotAllowedError'?'面容解锁已取消或超时，请输入密码或点“面容解锁”重试 · Face ID cancelled, use password or retry':'面容解锁出错（'+en+'），请输入密码 · Face ID error, use password');return}
+  let raw;try{const k=await fidKey(prf);raw=new Uint8Array(await S.decrypt({name:'AES-GCM',iv:ub64(w.iv),additionalData:AAD},k,ub64(w.ct)))}catch(e){fidBroken(er);return}
   window.__fidSrc=1;await openData(raw)}finally{prf&&prf.fill(0);fidBusy=false}}
+function fidBroken(er){fidClear();LS.setItem('twf_fid_re','1');LS.removeItem('twf_fid_skip');const b=document.getElementById('fid');b&&b.remove();const m='面容解锁已失效，请用密码解锁后重新启用 · Face ID expired, unlock with password to re-enable';toast(m);fidFallback(er,m)}
 function fidFallback(er,msg){if(er&&msg)er.textContent=msg;const p=document.getElementById('pw');p&&p.focus()}
 /* lock screen: add Face ID button + auto-prompt once */
 const _showLogin=showLogin;
@@ -329,10 +335,10 @@ showLogin=function(){_showLogin();if(!LS.getItem('twf_wrap'))return;const fg=doc
 const _openData=openData;
 openData=async function(raw){const viaFid=window.__fidSrc;window.__fidSrc=0;await _openData(raw);
  if(viaFid||fidWrap()||LS.getItem('twf_fid_skip')==='1')return;if(await fidAvail())fidOffer()};
-function fidOffer(){frame('启用面容解锁？<br><span style="font-size:15px;color:var(--g)">Enable Face ID?</span>','之后可用面容快速打开。密码仍可随时使用。<br>Unlock with Face ID next time. Your password always works.',`<form id="f" onsubmit="return false"><div class="err" id="er"></div><button class="ghost" id="fidon" type="button">${IFID}启用面容解锁 Enable Face ID</button><button class="lnk" id="fidno" type="button">暂不启用 Not now</button></form>`);
+function fidOffer(){frame((LS.getItem('twf_fid_re')==='1'?'重新':'')+'启用面容解锁？<br><span style="font-size:15px;color:var(--g)">Enable Face ID?</span>','之后可用面容快速打开。密码仍可随时使用。<br>Unlock with Face ID next time. Your password always works.',`<form id="f" onsubmit="return false"><div class="err" id="er"></div><button class="ghost" id="fidon" type="button">${IFID}启用面容解锁 Enable Face ID</button><button class="lnk" id="fidno" type="button">暂不启用 Not now</button></form>`);
  document.getElementById('fidno').onclick=()=>{LS.setItem('twf_fid_skip','1');DK?hideLock():lockNow()};
  document.getElementById('fidon').onclick=async()=>{const er=document.getElementById('er');if(!DK)return lockNow();const r=await fidEnable(DK);
-  if(r==='ok'){hideLock();toast('面容解锁已启用 · Face ID enabled')}else if(r==='unsupported'){er.textContent='此设备不支持面容解锁 Face ID not supported';LS.setItem('twf_fid_skip','1')}else er.textContent='已取消 · Cancelled'}}
+  if(r==='ok'){LS.removeItem('twf_fid_re');hideLock();toast('面容解锁已启用 · Face ID enabled')}else if(r==='unsupported'){er.textContent='此设备不支持面容解锁 Face ID not supported';LS.setItem('twf_fid_skip','1')}else er.textContent='已取消 · Cancelled'}}
 /* settings (main screen) */
 async function fidSettings(){if(!DK)return;const on=!!fidWrap(),av=await fidAvail();if(!on&&!av)return toast('此设备不支持面容解锁 Face ID not supported');
  if(!on)return fidOffer();
