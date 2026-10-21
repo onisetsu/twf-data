@@ -342,6 +342,7 @@ async function fidSettings(){if(!DK)return;const on=!!fidWrap(),av=await fidAvai
 window.fidSettings=fidSettings;
 fidAvail().then(a=>{if(a||fidWrap()){const c=document.getElementById('cnt');c&&c.insertAdjacentHTML('afterend','<button onclick="fidSettings()" style="background:none;border:1px solid var(--line);color:var(--o);border-radius:20px;padding:4px 12px;font-size:12px;margin-top:10px;font-family:inherit">面容解锁设置 Face ID</button>')}});
 
+try{localStorage.removeItem('twf_sess')}catch(e){}
 /* boot */
 (function(){const dm=(location.hash.match(/demo=(\w+)/)||[])[1];
  if(dm==='setup')return showSetup();
