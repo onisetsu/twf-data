@@ -342,22 +342,6 @@ async function fidSettings(){if(!DK)return;const on=!!fidWrap(),av=await fidAvai
 window.fidSettings=fidSettings;
 fidAvail().then(a=>{if(a||fidWrap()){const c=document.getElementById('cnt');c&&c.insertAdjacentHTML('afterend','<button onclick="fidSettings()" style="background:none;border:1px solid var(--line);color:var(--o);border-radius:20px;padding:4px 12px;font-size:12px;margin-top:10px;font-family:inherit">面容解锁设置 Face ID</button>')}});
 
-/* ===== TWF: 60-min unlock session (fixed from unlock time) ===== */
-const SESS_MS=60*60*1000;
-function sessClear(){LS.removeItem('twf_sess')}
-function sessGet(){try{const s=JSON.parse(LS.getItem('twf_sess')||'null');const t=Date.now();if(s&&s.k&&s.exp>t&&s.exp-t<=SESS_MS+60000)return s}catch(e){}sessClear();return null}
-const _sOpen=openData;
-openData=async function(raw){const fromSess=window.__sessSrc;window.__sessSrc=0;await _sOpen(raw);
- if(!fromSess)LS.setItem('twf_sess',JSON.stringify({exp:Date.now()+SESS_MS,k:b64(raw)}))};
-const _sLock=lockNow;
-lockNow=function(){if(DK&&sessGet()){armIdle();return}sessClear();_sLock()};   /* auto-lock suppressed while session valid */
-window.twfLock=function(){sessClear();_sLock()};                                /* manual lock always locks */
-const _sLogin=showLogin;
-showLogin=function(){const s=!DK&&LS.getItem('twf_wrap')&&sessGet();
- if(s){window.__sessSrc=1;window.__fidSrc=1;openData(ub64(s.k)).catch(()=>{sessClear();window.__fidSrc=0;_sLogin()});return}
- _sLogin()};
-document.addEventListener('click',e=>{if(e.target&&e.target.id==='forgot')sessClear()},true);
-
 /* boot */
 (function(){const dm=(location.hash.match(/demo=(\w+)/)||[])[1];
  if(dm==='setup')return showSetup();
